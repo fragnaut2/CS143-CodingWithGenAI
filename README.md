@@ -1,0 +1,3 @@
+## Problem
+
+The problem that I want AI to write a solution to is to help me implement a basic 2D fluid simulation based on particle objects who's positions, velocitys, and accelerations are stored as 2 element lists. I have set up a libGDX project to handle the rendering tasks of this project and intend to see how well AI can deal with this constraint. I have attempted this in the past, and always ended up running into performance issues before reaching a convincing result, so I would like AI to help me implement some sort of spatial partitioning to limit the length of elements that need to be accessed in order to resolve the forces between to close particles. I would also like AI to suggest any 
