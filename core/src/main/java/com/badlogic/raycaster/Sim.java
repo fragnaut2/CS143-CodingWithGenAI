@@ -12,12 +12,12 @@ import com.badlogic.gdx.utils.IntArray;
 
 /** {@link com.badlogic.gdx.ApplicationListener} implementation shared by all platforms. */
 public class Sim implements ApplicationListener {
-    private static final int PARTICLE_COUNT = 2500;
+    private static final int PARTICLE_COUNT = 8000;
     private static final float WORLD_WIDTH = 1000f;
     private static final float WORLD_HEIGHT = 800f;
     private static final float PARTICLE_RADIUS = 2f;
 
-    private static final float CONNECT_RADIUS = 15f;
+    // private static final float CONNECT_RADIUS = 15f;
 
     private static final float RESTITUTION = 0.5f;
 
@@ -32,11 +32,12 @@ public class Sim implements ApplicationListener {
     private static final float DAMPING = 1.5f;
 
     private ShapeRenderer shapeRenderer;
+    private FluidRenderer fluidRenderer;
     private FitViewport viewport;
     private Array<Particle> particles;
 
-    private final IntArray nbrs = new IntArray();
-    private boolean[] covered;
+    // private final IntArray nbrs = new IntArray();
+    // private boolean[] covered;
 
     private int rows, cols;
     private int[] cellHead;
@@ -45,6 +46,7 @@ public class Sim implements ApplicationListener {
     @Override
     public void create() {
         shapeRenderer = new ShapeRenderer();
+        fluidRenderer = new FluidRenderer(WORLD_WIDTH, WORLD_HEIGHT);
         viewport = new FitViewport(WORLD_WIDTH, WORLD_HEIGHT);
         particles = new Array<>();
 
@@ -60,7 +62,7 @@ public class Sim implements ApplicationListener {
             }
         }
 
-        covered = new boolean[particles.size];
+        // covered = new boolean[particles.size];
 
         cols = (int)Math.ceil(WORLD_WIDTH / H);
         rows = (int)Math.ceil(WORLD_HEIGHT / H);
@@ -95,64 +97,68 @@ public class Sim implements ApplicationListener {
         viewport.apply();
         shapeRenderer.setProjectionMatrix(viewport.getCamera().combined);
 
-        renderFluid();
+        fluidRenderer.render(particles, viewport);
+
+        // renderFluid();
+
+
     }
 
-    private float dist2(Particle a, Particle b){
-        float dx = b.position[0] - a.position[0];
-        float dy = b.position[1] - a.position[1];
-        return dx * dx + dy * dy;
-    }
+    // private float dist2(Particle a, Particle b){
+    //     float dx = b.position[0] - a.position[0];
+    //     float dy = b.position[1] - a.position[1];
+    //     return dx * dx + dy * dy;
+    // }
 
-    private void renderFluid(){
-        buildGrid();
-        java.util.Arrays.fill(covered, false);
-        float r2 = CONNECT_RADIUS * CONNECT_RADIUS;
+    // private void renderFluid(){
+    //     buildGrid();
+    //     java.util.Arrays.fill(covered, false);
+    //     float r2 = CONNECT_RADIUS * CONNECT_RADIUS;
 
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        shapeRenderer.setColor(Color.SKY);
+    //     shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+    //     shapeRenderer.setColor(Color.SKY);
 
-        for(int i = 0; i < particles.size; i++){
-            Particle a = particles.get(i);
-            int cx = cellCoord(a.position[0], cols);
-            int cy = cellCoord(a.position[1], rows);
+    //     for(int i = 0; i < particles.size; i++){
+    //         Particle a = particles.get(i);
+    //         int cx = cellCoord(a.position[0], cols);
+    //         int cy = cellCoord(a.position[1], rows);
 
-            // Collect heighter indexed neighbors within range
-            nbrs.clear();
+    //         // Collect heighter indexed neighbors within range
+    //         nbrs.clear();
 
-            for (int gy = Math.max(cy - 1, 0); gy <= Math.min(cy + 1, rows - 1); gy++) {
-                for (int gx = Math.max(cx - 1, 0); gx <= Math.min(cx + 1, cols - 1); gx++) {
-                    for (int j = cellHead[gy * cols + gx]; j != -1; j = nextInCell[j]) {
-                        if (j > i && dist2(a, particles.get(j)) < r2) nbrs.add(j);
-                    }
-                }
-            }
+    //         for (int gy = Math.max(cy - 1, 0); gy <= Math.min(cy + 1, rows - 1); gy++) {
+    //             for (int gx = Math.max(cx - 1, 0); gx <= Math.min(cx + 1, cols - 1); gx++) {
+    //                 for (int j = cellHead[gy * cols + gx]; j != -1; j = nextInCell[j]) {
+    //                     if (j > i && dist2(a, particles.get(j)) < r2) nbrs.add(j);
+    //                 }
+    //             }
+    //         }
 
-            // Every pair of neighbors that are also close to each other forms a triangle
-            for (int m = 0; m < nbrs.size; m++) {
-                Particle b = particles.get(nbrs.get(m));
-                for (int n = m + 1; n < nbrs.size; n++) {
-                    Particle c = particles.get(nbrs.get(n));
-                    if (dist2(b, c) < r2) {
-                        shapeRenderer.triangle(a.position[0], a.position[1],
-                                            b.position[0], b.position[1],
-                                            c.position[0], c.position[1]);
-                        covered[i] = covered[nbrs.get(m)] = covered[nbrs.get(n)] = true;
-                    }
-                }
-            }
-        }
+    //         // Every pair of neighbors that are also close to each other forms a triangle
+    //         for (int m = 0; m < nbrs.size; m++) {
+    //             Particle b = particles.get(nbrs.get(m));
+    //             for (int n = m + 1; n < nbrs.size; n++) {
+    //                 Particle c = particles.get(nbrs.get(n));
+    //                 if (dist2(b, c) < r2) {
+    //                     shapeRenderer.triangle(a.position[0], a.position[1],
+    //                                         b.position[0], b.position[1],
+    //                                         c.position[0], c.position[1]);
+    //                     covered[i] = covered[nbrs.get(m)] = covered[nbrs.get(n)] = true;
+    //                 }
+    //             }
+    //         }
+    //     }
 
-        // Loose particles become droplets
-        for (int i = 0; i < particles.size; i++) {
-            if (!covered[i]) {
-                Particle p = particles.get(i);
-                shapeRenderer.circle(p.position[0], p.position[1], PARTICLE_RADIUS, 12);
-            }
-        }
+    //     // Loose particles become droplets
+    //     for (int i = 0; i < particles.size; i++) {
+    //         if (!covered[i]) {
+    //             Particle p = particles.get(i);
+    //             shapeRenderer.circle(p.position[0], p.position[1], PARTICLE_RADIUS, 12);
+    //         }
+    //     }
 
-        shapeRenderer.end();
-    }
+    //     shapeRenderer.end();
+    // }
 
     private int cellCoord(float v, int max){
         int c = (int) (v / H);
@@ -249,5 +255,6 @@ public class Sim implements ApplicationListener {
     @Override
     public void dispose() {
         shapeRenderer.dispose();
+        fluidRenderer.dispose();
     }
 }
