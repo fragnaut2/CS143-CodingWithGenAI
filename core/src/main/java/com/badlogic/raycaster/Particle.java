@@ -11,6 +11,24 @@ public class Particle {
         position[1] = y;
     }
 
+    public void collideWithBounds(float minX, float minY, float maxX, float maxY, float radius, float restitution){
+        if (position[0] < minX + radius) {
+            position[0] = minX + radius;
+            velocity[0] = -velocity[0] * restitution;
+        } else if (position[0] > maxX - radius) {
+            position[0] = maxX - radius;
+            velocity[0] = -velocity[0] * restitution;
+        }
+
+        if (position[1] < minY + radius) {
+            position[1] = minY + radius;
+            velocity[1] = -velocity[1] * restitution;
+        } else if (position[1] > maxY - radius) {
+            position[1] = maxY - radius;
+            velocity[1] = -velocity[1] * restitution;
+        }
+    }
+
     /** Simple semi-implicit Euler step; the forces/spatial grid will feed into acceleration later. */
     public void update(float dt) {
         velocity[0] += acceleration[0] * dt;

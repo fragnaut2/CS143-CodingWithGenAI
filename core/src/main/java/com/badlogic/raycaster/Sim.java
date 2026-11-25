@@ -7,12 +7,19 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
+import com.badlogic.gdx.math.Vector2;
 
 /** {@link com.badlogic.gdx.ApplicationListener} implementation shared by all platforms. */
 public class Sim implements ApplicationListener {
-    private static final float WORLD_WIDTH = 800f;
-    private static final float WORLD_HEIGHT = 600f;
+    private static final float WORLD_WIDTH = 1000f;
+    private static final float WORLD_HEIGHT = 800f;
     private static final float PARTICLE_RADIUS = 4f;
+
+    private static final float RESTITUTION = 0.5f;
+
+    private final Vector2 mouse = new Vector2();
+    private static final float ATTRACT = 4f;
+    private static final float DAMPING = 1.5f;
 
     private ShapeRenderer shapeRenderer;
     private FitViewport viewport;
@@ -48,8 +55,20 @@ public class Sim implements ApplicationListener {
     public void render() {
         float dt = Math.min(Gdx.graphics.getDeltaTime(), 1f / 30f); // clamp to avoid huge steps
 
+        mouse.set(Gdx.input.getX(), Gdx.input.getY());
+        viewport.unproject(mouse);
+
+        float sign = Gdx.input.isTouched() ? -1f : 1f;
+
         for (Particle p : particles) {
+            float dx = mouse.x - p.position[0];
+            float dy = mouse.y - p.position[1];
+
+            p.acceleration[0] += sign * ATTRACT * dx - DAMPING * p.velocity[0];
+            p.acceleration[1] += sign * ATTRACT * dy - DAMPING * p.velocity[1];
+
             p.update(dt);
+            p.collideWithBounds(0f, 0f, WORLD_WIDTH, WORLD_HEIGHT, PARTICLE_RADIUS, RESTITUTION);
         }
 
         ScreenUtils.clear(0.05f, 0.05f, 0.1f, 1f);
