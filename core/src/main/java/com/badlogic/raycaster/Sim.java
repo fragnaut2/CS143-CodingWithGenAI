@@ -17,6 +17,12 @@ public class Sim implements ApplicationListener {
 
     private static final float RESTITUTION = 0.5f;
 
+    private static final int SUBSTEPS = 4;
+
+    private static final float H = 16f; //interaction radius
+    private static final float STIFFNESS = 3000f; // repulsion strength
+    private static final float VISCOSITY = 5f;
+
     private final Vector2 mouse = new Vector2();
     private static final float ATTRACT = 4f;
     private static final float DAMPING = 1.5f;
@@ -33,8 +39,8 @@ public class Sim implements ApplicationListener {
 
         // Temporary test layout: a 20x20 block of particles near the middle of the world.
         float spacing = 10f;
-        for (int i = 0; i < 20; i++) {
-            for (int j = 0; j < 20; j++) {
+        for (int i = 0; i < 40; i++) {
+            for (int j = 0; j < 40; j++) {
                 particles.add(new Particle(
                     WORLD_WIDTH / 2f + (i - 10) * spacing,
                     WORLD_HEIGHT / 2f + (j - 10) * spacing));
@@ -53,22 +59,30 @@ public class Sim implements ApplicationListener {
 
     @Override
     public void render() {
-        float dt = Math.min(Gdx.graphics.getDeltaTime(), 1f / 30f); // clamp to avoid huge steps
+        // float dt = Math.min(Gdx.graphics.getDeltaTime(), 1f / 30f); // clamp to avoid huge steps
 
         mouse.set(Gdx.input.getX(), Gdx.input.getY());
         viewport.unproject(mouse);
 
         float sign = Gdx.input.isTouched() ? -1f : 1f;
 
-        for (Particle p : particles) {
-            float dx = mouse.x - p.position[0];
-            float dy = mouse.y - p.position[1];
+        // for (Particle p : particles) {
+        //     p.acceleration[1] -= 500f;
 
-            p.acceleration[0] += sign * ATTRACT * dx - DAMPING * p.velocity[0];
-            p.acceleration[1] += sign * ATTRACT * dy - DAMPING * p.velocity[1];
+        //     float dx = mouse.x - p.position[0];
+        //     float dy = mouse.y - p.position[1];
 
-            p.update(dt);
-            p.collideWithBounds(0f, 0f, WORLD_WIDTH, WORLD_HEIGHT, PARTICLE_RADIUS, RESTITUTION);
+        //     // p.acceleration[0] += sign * ATTRACT * dx - DAMPING * p.velocity[0];
+        //     // p.acceleration[1] += sign * ATTRACT * dy - DAMPING * p.velocity[1];
+
+        //     p.update(dt);
+        //     p.collideWithBounds(0f, 0f, WORLD_WIDTH, WORLD_HEIGHT, PARTICLE_RADIUS, RESTITUTION);
+        // }
+
+        float frameDt = Math.min(Gdx.graphics.getDeltaTime(), 1f / 30f);
+        float dt = frameDt / SUBSTEPS;
+        for(int s = 0; s < SUBSTEPS; s++){
+            step(dt);
         }
 
         ScreenUtils.clear(0.05f, 0.05f, 0.1f, 1f);
@@ -81,6 +95,58 @@ public class Sim implements ApplicationListener {
             shapeRenderer.circle(p.position[0], p.position[1], PARTICLE_RADIUS, 12);
         }
         shapeRenderer.end();
+    }
+
+    private void step(float dt){
+        // Accumulate forces
+        for(Particle p : particles){
+            p.acceleration[1] -= 500f;
+        }
+
+        applyParticleForces();
+
+        for(Particle p : particles){
+            p.update(dt);
+            p.collideWithBounds(0f, 0f, WORLD_WIDTH, WORLD_HEIGHT, PARTICLE_RADIUS, RESTITUTION);
+        }
+    }
+
+    private void applyParticleForces(){
+        float h2 = H * H;
+        for(int i = 0; i < particles.size; i++){
+            Particle a = particles.get(i);
+            for(int j = 0; j < particles.size; j++){
+                Particle b = particles.get(j);
+
+                float dx = b.position[0] - a.position[0];
+                float dy = b.position[1] - a.position[1];
+
+                float d2 = dx * dx + dy * dy;
+                if(d2 >= h2) continue;
+
+                float d = (float)Math.sqrt(d2);
+                float nx, ny;
+                if(d < 1e-4f) {nx = 1f; ny = 0f;}
+                else {nx = dx / d; ny = dy / d;}
+
+                float w = 1f - d / H;
+
+                // Repulsion along the line between the two particles
+                float push = STIFFNESS * w;
+                a.acceleration[0] -= nx * push;
+                a.acceleration[1] -= ny * push;
+                b.acceleration[0] += nx * push;
+                b.acceleration[1] += ny * push;
+
+                // Viscosity: pull relative velocities together
+                float vx = VISCOSITY * w * (b.velocity[0] - a.velocity[0]);
+                float vy = VISCOSITY * w * (b.velocity[1] - a.velocity[1]);
+                a.acceleration[0] += vx;
+                a.acceleration[1] += vy;
+                b.acceleration[0] -= vx;
+                b.acceleration[1] -= vy;
+            }
+        }
     }
 
     @Override
