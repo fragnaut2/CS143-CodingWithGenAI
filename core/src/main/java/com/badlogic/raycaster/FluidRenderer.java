@@ -32,7 +32,7 @@ public class FluidRenderer implements Disposable {
     /** Field value (0..1) where the surface sits. Higher = fluid shrinks, more droplets. */
     private static final float THRESHOLD = 0.05f;
     /** Width of the soft edge around the threshold. Smaller = crisper outline. */
-    private static final float EDGE_SOFTNESS = 0.1f;
+    private static final float EDGE_SOFTNESS = 0.9f;
     /** Color right at the surface and deep inside the fluid (r, g, b). */
     private static final float[] SURFACE_COLOR = {0.45f, 0.80f, 1.00f};
     private static final float[] DEEP_COLOR    = {0.10f, 0.40f, 0.90f};
@@ -64,6 +64,7 @@ public class FluidRenderer implements Disposable {
         "    float inside = smoothstep(u_threshold - u_softness, u_threshold + u_softness, field);\n" +
         "    float depth = smoothstep(u_threshold, 1.0, field);\n" +
         "    gl_FragColor = vec4(mix(u_surfaceColor, u_deepColor, depth), inside);\n" +
+        // "    gl_FragColor = vec4(vec3(field), 1.0);\n" +
         "}\n";
 
     private final float worldWidth;

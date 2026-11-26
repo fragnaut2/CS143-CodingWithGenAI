@@ -9,6 +9,7 @@ import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.IntArray;
+import com.badlogic.gdx.utils.FloatArray;
 
 /** {@link com.badlogic.gdx.ApplicationListener} implementation shared by all platforms. */
 public class Sim implements ApplicationListener {
@@ -16,6 +17,10 @@ public class Sim implements ApplicationListener {
     private static final float WORLD_WIDTH = 1000f;
     private static final float WORLD_HEIGHT = 800f;
     private static final float PARTICLE_RADIUS = 2f;
+
+    private static final float GRAB_RADIUS = 50f;
+    private static final float GRAB_STRENGTH = 150f;
+    private static final float GRAB_DAMPING = 35f;
 
     // private static final float CONNECT_RADIUS = 15f;
 
@@ -28,8 +33,9 @@ public class Sim implements ApplicationListener {
     private static final float VISCOSITY = 5f;
 
     private final Vector2 mouse = new Vector2();
-    private static final float ATTRACT = 4f;
-    private static final float DAMPING = 1.5f;
+    private final IntArray grabbed = new IntArray();       // indices of the particles being carried
+    private final FloatArray grabOffsets = new FloatArray(); // x, y offset from the cursor, per grabbed particle
+    private boolean wasTouched = false;
 
     private ShapeRenderer shapeRenderer;
     private FluidRenderer fluidRenderer;
@@ -87,13 +93,15 @@ public class Sim implements ApplicationListener {
 
         float sign = Gdx.input.isTouched() ? -1f : 1f;
 
+        updateGrab();
+
         float frameDt = Math.min(Gdx.graphics.getDeltaTime(), 1f / 30f);
         float dt = frameDt / SUBSTEPS;
         for(int s = 0; s < SUBSTEPS; s++){
             step(dt);
         }
 
-        ScreenUtils.clear(0.05f, 0.05f, 0.1f, 1f);
+        ScreenUtils.clear(0f, 0f, 0f, 1f);
         viewport.apply();
         shapeRenderer.setProjectionMatrix(viewport.getCamera().combined);
 
@@ -104,61 +112,48 @@ public class Sim implements ApplicationListener {
 
     }
 
-    // private float dist2(Particle a, Particle b){
-    //     float dx = b.position[0] - a.position[0];
-    //     float dy = b.position[1] - a.position[1];
-    //     return dx * dx + dy * dy;
-    // }
+    private void updateGrab(){
+        mouse.set(Gdx.input.getX(), Gdx.input.getY());
+        viewport.unproject(mouse);
 
-    // private void renderFluid(){
-    //     buildGrid();
-    //     java.util.Arrays.fill(covered, false);
-    //     float r2 = CONNECT_RADIUS * CONNECT_RADIUS;
+        boolean touched = Gdx.input.isTouched();
+        if (touched && !wasTouched) beginGrab();
+        else if(!touched && wasTouched) endGrab();
+        wasTouched = touched;
+    }
 
-    //     shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-    //     shapeRenderer.setColor(Color.SKY);
+    private void beginGrab(){
+        grabbed.clear();
+        grabOffsets.clear();
+        float r2 = GRAB_RADIUS * GRAB_RADIUS;
 
-    //     for(int i = 0; i < particles.size; i++){
-    //         Particle a = particles.get(i);
-    //         int cx = cellCoord(a.position[0], cols);
-    //         int cy = cellCoord(a.position[1], rows);
+        for(int i = 0; i < particles.size; i++){
+            Particle p = particles.get(i);
+            float dx = p.position[0] - mouse.x;
+            float dy = p.position[1] - mouse.y;
+            if (dx * dx + dy * dy < r2) {
+                grabbed.add(i);
+                grabOffsets.add(dx);
+                grabOffsets.add(dy);
+            }
+        }
+    }
 
-    //         // Collect heighter indexed neighbors within range
-    //         nbrs.clear();
+    private void endGrab(){
+        grabbed.clear();
+        grabOffsets.clear();
+    }
 
-    //         for (int gy = Math.max(cy - 1, 0); gy <= Math.min(cy + 1, rows - 1); gy++) {
-    //             for (int gx = Math.max(cx - 1, 0); gx <= Math.min(cx + 1, cols - 1); gx++) {
-    //                 for (int j = cellHead[gy * cols + gx]; j != -1; j = nextInCell[j]) {
-    //                     if (j > i && dist2(a, particles.get(j)) < r2) nbrs.add(j);
-    //                 }
-    //             }
-    //         }
+    private void applyGrabForce(){
+        for(int k = 0; k < grabbed.size; k++){
+            Particle p = particles.get(grabbed.get(k));
+            float targetX = mouse.x + grabOffsets.get(2 * k);
+            float targetY = mouse.y + grabOffsets.get(2 * k + 1);
 
-    //         // Every pair of neighbors that are also close to each other forms a triangle
-    //         for (int m = 0; m < nbrs.size; m++) {
-    //             Particle b = particles.get(nbrs.get(m));
-    //             for (int n = m + 1; n < nbrs.size; n++) {
-    //                 Particle c = particles.get(nbrs.get(n));
-    //                 if (dist2(b, c) < r2) {
-    //                     shapeRenderer.triangle(a.position[0], a.position[1],
-    //                                         b.position[0], b.position[1],
-    //                                         c.position[0], c.position[1]);
-    //                     covered[i] = covered[nbrs.get(m)] = covered[nbrs.get(n)] = true;
-    //                 }
-    //             }
-    //         }
-    //     }
-
-    //     // Loose particles become droplets
-    //     for (int i = 0; i < particles.size; i++) {
-    //         if (!covered[i]) {
-    //             Particle p = particles.get(i);
-    //             shapeRenderer.circle(p.position[0], p.position[1], PARTICLE_RADIUS, 12);
-    //         }
-    //     }
-
-    //     shapeRenderer.end();
-    // }
+            p.acceleration[0] += GRAB_STRENGTH * (targetX - p.position[0]) - GRAB_DAMPING * p.velocity[0];
+            p.acceleration[1] += GRAB_STRENGTH * (targetY - p.position[1]) - GRAB_DAMPING * p.velocity[1];
+        }
+    }
 
     private int cellCoord(float v, int max){
         int c = (int) (v / H);
@@ -182,6 +177,7 @@ public class Sim implements ApplicationListener {
         }
 
         applyParticleForces();
+        applyGrabForce();
 
         for(Particle p : particles){
             p.update(dt);
