@@ -19,7 +19,7 @@ public class Sim implements ApplicationListener {
     private static final float PARTICLE_RADIUS = 2f;
 
     private static final float GRAB_RADIUS = 50f;
-    private static final float GRAB_STRENGTH = 150f;
+    private static final float GRAB_STRENGTH = 50f;
     private static final float GRAB_DAMPING = 35f;
 
     // private static final float CONNECT_RADIUS = 15f;
